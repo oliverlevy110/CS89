@@ -20,7 +20,7 @@ public:
 	VectorD src_vel=VectorD::Unit(0)*(real)1.5;
 	real src_radius=(real).1;
 
-	
+
 	virtual void Initialize()
 	{
 		int n=64;
@@ -36,6 +36,7 @@ public:
 		p.resize(node_num,(real)0);
 		vor.resize(node_num,(real)0);
 	}
+/////////////////////////////////////////////////////////////////////////////////////
 
 	virtual void Advection(real dt)
 	{
@@ -44,8 +45,17 @@ public:
 		for(int i=0;i<node_num;i++){
 			u[i]=VectorD::Zero();
 
-			/*Your implementation starts*/
-			/*Your implementation ends*/
+			// Find midpoint
+			VectorD result  = Pos(i) - u[i]*(dt/2);
+			
+			// Find the value at this point using interpolation function
+			VectorD inter = Interpolate(u_copy,result);
+
+			// Use the midpoint to find the starting point
+			result = Pos(i) -inter*(dt/2);
+
+			// Find the value at this point using interpolation function
+			u[i] = Interpolate(u_copy, result);
 		}
 	}
 
@@ -68,19 +78,38 @@ public:
 				div_u[i]+=(u_2[j]-u_1[j])/(2*dx);}
 		}
 
-		////Projection step 2: solve the Poisson's equation -lap p= div u 
+		////Projection step 2: solve the Poisson's equation -lap p= div u
 		////using the Gauss-Seidel iterations
 		std::fill(p.begin(),p.end(),(real)0);
+
+		// 40 iterations
 		for(int iter=0;iter<40;iter++){
+			//for every coordinate
 			for(int i=0;i<node_num;i++){
 				if(Bnd(i))continue;		////ignore the nodes on the boundary
 				VectorDi node=Coord(i);
 
-				/*Your implementation starts*/
+
+				// Pressure value, start of the equation -( div * u)
+				p[i] = -1 * div_u[i];
+
+				// Laplacian Operator - Code doesnt rely on dimension 
+				// for each dimension a, find a-1 and a+1 values, add together and multiply by 1/(dx^2) 
+				for(int j=0;j<d;j++){
+					// Vector has +-1 in the jth direction (dimension)
+					real u_1=p[Idx(node-VectorDi::Unit(j))];
+					real u_2=p[Idx(node+VectorDi::Unit(j))];
+					p[i]+=((u_2+u_1)/(pow(dx,2)));}
+
+				// Finish Laplacian by multiplying by (2 * dimension / dx^2) 
+				p[i] /= (2*d)/(pow(dx,2));
+
+
+
 				/*Your implementation ends*/
 			}
 		}
-		
+
 		////Projection step 3: correct velocity with the pressure gradient
 		for(int i=0;i<node_num;i++){
 			if(Bnd(i))continue;		////ignore boundary nodes
@@ -88,6 +117,12 @@ public:
 			VectorD grad_p=VectorD::Zero();
 
 			/*Your implementation starts*/
+			for(int j=0;j<d;j++){
+				real p_1=p[Idx(node-VectorDi::Unit(j))];
+				real p_2=p[Idx(node+VectorDi::Unit(j))];
+				grad_p[j] = (p_2 - p_1) * (1/(2*dx));
+			}
+			u[i] = u[i] - grad_p;
 			/*Your implementation ends*/
 		}
 	}
@@ -112,8 +147,19 @@ public:
 			VectorDi node=Coord(i);
 			vor[i]=(real)0;
 
-			/*Your implementation starts*/
-			/*Your implementation ends*/
+			//Curl - code changes for # of dimensions
+
+			// x+1
+			VectorD u_1=u[Idx(node+VectorDi::Unit(0))];
+			// x-1
+			VectorD u_2=u[Idx(node-VectorDi::Unit(0))];
+			// y+1
+			VectorD u_3=u[Idx(node+VectorDi::Unit(1))];
+			// y-1
+			VectorD u_4=u[Idx(node-VectorDi::Unit(1))];
+
+			//Calculate Vorticity with curl approximation
+			vor[i] = ((u_1[1] - u_2[1] - u_3[0] + u_4[0])/(2*dx));
 		}
 
 		////Vorticity confinement step 2: update N = (grad(|vor|)) / |grad(|vor|)|
@@ -122,9 +168,17 @@ public:
 			if(Bnd(i))continue;		////ignore boundary nodes
 			VectorDi node=Coord(i);
 			N[i]=VectorD::Zero();
+			
+			// Calculate divergence of vorticity (same as projection step 1 code) 
+			for(int j=0;j<d;j++){
+				real vor_1=vor[Idx(node-VectorDi::Unit(j))];
+				real vor_2=vor[Idx(node+VectorDi::Unit(j))];
+				N[i][j] = (vor_2 - vor_1);
+			}
 
-			/*Your implementation starts*/
-			/*Your implementation ends*/
+			//Normalize 
+			N[i].normalize();
+
 		}
 
 		////Vorticity confinement step 3: calculate confinement force and use it to update velocity
@@ -135,6 +189,10 @@ public:
 			u[i]+=f*dt;	////we don't have mass by assuming density=1
 		}
 	}
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////
 
 	void Advance(const real dt)
 	{
@@ -149,9 +207,9 @@ public:
 	////Please make sure to read these helper functions to understand how to access grid data
 	//////////////////////////////////////////////////////////////////////////
 	////return the node index given its coordinate
-	int Idx(const Vector2i& node_coord) const 
+	int Idx(const Vector2i& node_coord) const
 	{return grid.Node_Index(node_coord);}
-	
+
 	////return the coordinate given its index
 	VectorDi Coord(const int node_index) const
 	{return grid.Node_Coord(node_index);}
@@ -160,7 +218,7 @@ public:
 	VectorD Pos(const int node_index) const
 	{return grid.Node(node_index);}
 
-	////check if a node is on the boundary of the grid 
+	////check if a node is on the boundary of the grid
 	////given its coordinate or index
 	bool Bnd(const Vector2i& node_coord) const
 	{
@@ -168,7 +226,7 @@ public:
 			if(node_coord[i]==0||node_coord[i]==grid.node_counts[i]-1)
 				return true;
 		}
-		return false;	
+		return false;
 	}
 	bool Bnd(const int node_index) const
 	{return Bnd(Coord(node_index));}

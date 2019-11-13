@@ -24,7 +24,7 @@ public:
 
 	////Body force
 	VectorD g=VectorD::Unit(1)*(real)-1.;
-	
+
 	enum class TimeIntegration{ExplicitEuler,ImplicitEuler} time_integration=TimeIntegration::ExplicitEuler;
 
 	////Implicit time integration
@@ -42,7 +42,7 @@ public:
 		}break;
 		case TimeIntegration::ImplicitEuler:{
 			ks_0=(real)1e5;
-			kd_0=(real)1e1;			
+			kd_0=(real)1e1;
 		}break;}
 
 		////Allocate arrays for springs and parameters
@@ -52,7 +52,7 @@ public:
 		ks.resize(springs.size(),ks_0);
 		kd.resize(springs.size(),kd_0);
 
-		////Allocate sparse matrix if using implicit time integration 
+		////Allocate sparse matrix if using implicit time integration
 		////This function needs to be called for only once since the mesh doesn't change during the simulation)
 		if(time_integration==TimeIntegration::ImplicitEuler)
 			Initialize_Implicit_K_And_b();
@@ -66,12 +66,12 @@ public:
 		case TimeIntegration::ImplicitEuler:
 			Advance_Implicit_Euler(dt);break;}
 	}
-	
+
 	////Set boundary nodes
 	void Set_Boundary_Node(const int p,const VectorD v=VectorD::Zero()){boundary_nodes[p]=v;}
-	
+
 	bool Is_Boundary_Node(const int p){return boundary_nodes.find(p)!=boundary_nodes.end();}
-	
+
 	void Enforce_Boundary_Conditions()
 	{
 		for(auto p:boundary_nodes){
@@ -85,24 +85,48 @@ public:
 	////P1 TASK: explicit Euler integration and spring force calculation
 
 	//////////////////////////////////////////////////////////////////////////
-	////YOUR IMPLEMENTATION (P1 TASK): explicit Euler time integration 
+	////YOUR IMPLEMENTATION (P1 TASK): explicit Euler time integration
 	void Advance_Explicit_Euler(const real dt)
 	{
 		Particle_Force_Accumulation();
 
 		////Update particle velocity and position
 		/* Your implementation start */
+		for(int i=0;i<particles.Size();i++){
+			particles.V(i) = particles.V(i) + dt*particles.F(i)/particles.M(i);
+			particles.X(i) = particles.X(i) + dt*particles.V(i);
 
+		}
 		/* Your implementation end */
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	////YOUR IMPLEMENTATION (P1 TASK): compute spring force f_ij=f_s+f_d 
+	////YOUR IMPLEMENTATION (P1 TASK): compute spring force f_ij=f_s+f_d
 	VectorD Spring_Force_Calculation(const int idx)
 	{
 		/* Your implementation start */
+		int i_idx = springs[idx][0];
+		int j_idx = springs[idx][1];
+
+		VectorD X_i=particles.X(i_idx);
+		VectorD X_j=particles.X(j_idx);
+
+		VectorD V_i=particles.V(i_idx);
+		VectorD V_j=particles.V(j_idx);
+
+		float ks_s = ks[idx];
+		float kd_s = kd[idx];
+		float l_o = rest_length[idx];
 
 		/* Your implementation end */
+
+		VectorD n = (X_j - X_i).normalized();
+
+		VectorD fs_ij = (ks_s)*((X_j - X_i).norm()-(l_o)) * n;
+		VectorD fd_ij = (kd_s)*((V_j - V_i).dot(n))*(n);
+		VectorD f_ij = fs_ij + fd_ij;
+
+		return f_ij;
 
 		//return VectorD::Zero();	////replace this line with your implementation
 	}
@@ -120,6 +144,16 @@ public:
 
 		////Accumulate spring forces
 		/* Your implementation start */
+		for(int i=0; i<springs.size();i++){
+			VectorD f_ij = Spring_Force_Calculation(i);
+			int pi = springs[i][0];
+			int pj = springs[i][1];
+
+			particles.F(pi) = particles.F(pi) + f_ij;
+			particles.F(pj)= particles.F(pj) + (-1*f_ij);
+
+
+		}
 
 		/* Your implementation end */
 
@@ -128,8 +162,8 @@ public:
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	////YOUR IMPLEMENTATION (P2 TASK): 
-	////Construct K, step 1: initialize the matrix structure 
+	////YOUR IMPLEMENTATION (P2 TASK):
+	////Construct K, step 1: initialize the matrix structure
 	void Initialize_Implicit_K_And_b()
 	{
 		int n=d*particles.Size();
@@ -141,11 +175,11 @@ public:
 			Add_Block_Triplet_Helper(j,i,elements);
 			Add_Block_Triplet_Helper(j,j,elements);}
 		K.setFromTriplets(elements.begin(),elements.end());
-		K.makeCompressed();	
+		K.makeCompressed();
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	////YOUR IMPLEMENTATION (P2 TASK): 
+	////YOUR IMPLEMENTATION (P2 TASK):
 	////Construct K, step 2: fill nonzero elements in K
 	void Update_Implicit_K_And_b(const real dt)
 	{
@@ -162,7 +196,7 @@ public:
 	////P2 TASK: Implicit Euler time integration
 
 	//////////////////////////////////////////////////////////////////////////
-	////YOUR IMPLEMENTATION (P2 TASK): 
+	////YOUR IMPLEMENTATION (P2 TASK):
 	////Construct K, step 2.1: compute spring force derivative
 	void Compute_Ks_Block(const int s,MatrixD& Ks)
 	{
@@ -172,7 +206,7 @@ public:
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	////YOUR IMPLEMENTATION (P2 TASK): 
+	////YOUR IMPLEMENTATION (P2 TASK):
 	////Construct K, step 2.2: compute damping force derivative
 	void Compute_Kd_Block(const int s,MatrixD& Kd)
 	{

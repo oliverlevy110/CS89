@@ -89,6 +89,19 @@ public:
 	{
 		/* Your implementation start */
 		/* Your implementation end */
+
+		for(int i = 0; i<pow(3,d);i++ ){
+			VectorDi cell = Nb_R(Cell_Coord(pos), i);
+			auto iter=voxels.find(cell);
+			if(iter != voxels.end()){
+				auto bucket = iter->second;
+				for(auto &j : bucket){
+					if((points[j]-pos).norm() <= kernel_radius){
+						nbs.emplace_back(j);
+					}	
+				}
+			}
+		}	
 		return nbs.size()>0;
 	}
 
@@ -160,8 +173,16 @@ public:
 	////YOUR IMPLEMENTATION (P2 TASK): update the density (particles.D(i)) of each particle based on the kernel function (Wspiky)
 	void Update_Density()
 	{
-		/* Your implementation start */
-		/* Your implementation end */
+	//CHECK
+
+		for(int i = 0; i<particles.Size(); i++){
+			Array<int> i_neighbors = neighbors[i];
+			particles.D(i) = 0;
+			for(int j = 0; j<i_neighbors.size(); j++){
+				int k = i_neighbors[j];
+				particles.D(i)= particles.D(i)+ particles.M(k) * kernel.Wspiky(particles.X(i)-particles.X(k));
+			} 	
+		}
 	}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -170,6 +191,10 @@ public:
 	{
 		/* Your implementation start */
 		/* Your implementation end */
+		for(int i = 0; i<particles.Size(); i++){
+			particles.P(i) = pressure_density_coef*(particles.D(i) - density_0);
+		}
+		
 	}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -178,6 +203,20 @@ public:
 	{
 		/* Your implementation start */
 		/* Your implementation end */
+		
+		for(int i = 0; i<particles.Size(); i++){
+			Array<int> i_neighbors = neighbors[i];
+			VectorD pressure = VectorD::Zero();
+			
+			for(int j = 0; j<i_neighbors.size(); j++){
+				int k = i_neighbors[j];	
+				pressure = pressure + ((particles.P(i)+particles.P(k))/2)*(particles.M(k)/particles.D(k)) * kernel.gradientWspiky(particles.X(i) - particles.X(k));
+			}
+			particles.F(i) = particles.F(i) - (pressure); 
+		}
+
+		
+
 	}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -186,6 +225,19 @@ public:
 	{
 		/* Your implementation start */
 		/* Your implementation end */
+
+	
+		for(int i = 0; i<particles.Size(); i++){
+			Array<int> i_neighbors = neighbors[i];
+			VectorD viscocity = VectorD::Zero();
+			
+			for(int j = 0; j<i_neighbors.size(); j++){
+
+				int k = i_neighbors[j];
+				viscocity= viscocity + (particles.V(k)-particles.V(i))*(particles.M(k)/particles.D(k)) * kernel.laplacianWvis(particles.X(i) - particles.X(k));
+			}
+			particles.F(i) = particles.F(i) + viscosity_coef*(viscocity); 
+		}
 	}
 
 	void Update_Body_Force()

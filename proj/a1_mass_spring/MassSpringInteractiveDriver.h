@@ -40,7 +40,7 @@ public:
 	}
 
 	void Initialize_OpenGL_Data()
-	{		
+	{
 		////initialize a segment mesh to visualize the trace
 		opengl_segments=Add_Interactive_Object<OpenGLSegmentMesh>();
 		opengl_segments->mesh.Vertices().resize(soft_body.particles.Size());
@@ -50,7 +50,7 @@ public:
 		for(int i=0;i<soft_body.springs.size();i++){
 			opengl_segments->mesh.Elements()[i]=soft_body.springs[i];}
 		opengl_segments->Set_Data_Refreshed();
-		opengl_segments->Initialize();	
+		opengl_segments->Initialize();
 
 		////initialize a sphere to visualize the particle
 		for(int i=0;i<soft_body.particles.Size();i++){
@@ -94,7 +94,7 @@ public:
 	{
 		soft_body.Advance(dt);
 	}
-	
+
 	virtual void Initialize_Simulation_Data()
 	{
 		switch(test){
@@ -118,8 +118,8 @@ public:
 			Build_Cloth_Mesh(width,height,step,&cloth_mesh,0,2);
 			int n=(int)cloth_mesh.Vertices().size();
 			Array<Vector2i> edges;Get_Mesh_Edges(cloth_mesh,edges);
-			
-			////copy cloth mesh vertices to spring particles 
+
+			////copy cloth mesh vertices to spring particles
 			soft_body.particles.Resize(n);
 			for(int i=0;i<n;i++){
 				soft_body.particles.X(i)=cloth_mesh.Vertices()[i];
@@ -132,7 +132,7 @@ public:
 			soft_body.Set_Boundary_Node(width-1);
 
 			////set the visualization triangle mesh
-			vis_triangle_mesh.reset(new TriangleMesh<d>(soft_body.particles.XPtr()));	
+			vis_triangle_mesh.reset(new TriangleMesh<d>(soft_body.particles.XPtr()));
 			vis_triangle_mesh->elements=cloth_mesh.elements;
 		}break;
 		case 3:{	////volumetric beam, for 3D only
@@ -144,7 +144,30 @@ public:
 		//////////////////////////////////////////////////////////////////////////
 		////YOUR IMPLEMENTATION (P1 TASK): create your own mass-spring simulation
 		case 4:{
-			/* Your implementation */
+			////create a cloth mesh
+			real length=(real)1;int width=4*scale;int height=6*scale;real step=length/(real)width;
+			TriangleMesh<d> cloth_mesh;
+			Build_Cloth_Mesh(width,height,step,&cloth_mesh,0,2);
+			int n=(int)cloth_mesh.Vertices().size();
+			Array<Vector2i> edges;Get_Mesh_Edges(cloth_mesh,edges);
+
+			////copy cloth mesh vertices to spring particles
+			soft_body.particles.Resize(n);
+			for(int i=0;i<n;i++){
+				soft_body.particles.X(i)=cloth_mesh.Vertices()[i];
+				soft_body.particles.M(i)=(real)1;}
+			////copy cloth mesh edges to springs
+			soft_body.springs=edges;
+
+			////set boundary conditions
+			soft_body.Set_Boundary_Node(0);
+			soft_body.Set_Boundary_Node(23);
+			soft_body.Set_Boundary_Node(6);
+
+
+			////set the visualization triangle mesh
+			vis_triangle_mesh.reset(new TriangleMesh<d>(soft_body.particles.XPtr()));
+			vis_triangle_mesh->elements=cloth_mesh.elements;
 		}break;
 		}
 
@@ -176,7 +199,7 @@ protected:
 			edge_hashset.insert(Sorted(Vector2i(vtx[1],vtx[2])));
 			edge_hashset.insert(Sorted(Vector2i(vtx[2],vtx[0])));}
 		for(const auto& edge:edge_hashset)edges.push_back(edge);
-	}	
+	}
 
 	void Build_Beam_Particles_And_Springs(Particles<3>& particles,Array<Vector2i>& edges,int n,real dx,Vector3 pos=Vector3::Zero())
 	{
@@ -197,7 +220,7 @@ protected:
 				edges.push_back(Vector2i(i*4+1,i*4+5));
 				edges.push_back(Vector2i(i*4+2,i*4+6));
 				edges.push_back(Vector2i(i*4+3,i*4+7));
-				
+
 				edges.push_back(Vector2i(i*4,i*4+7));
 				edges.push_back(Vector2i(i*4+1,i*4+6));
 				edges.push_back(Vector2i(i*4+2,i*4+5));

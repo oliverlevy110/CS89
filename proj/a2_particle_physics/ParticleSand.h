@@ -51,6 +51,15 @@ public:
 		particle_environment_collision_pairs.clear();
 		/* Your implementation start */
 		/* Your implementation end */
+
+		for(int i=0;i<particles.Size();i++){
+			for(int j=0;j<env_objects.size();j++){
+				if(env_objects[j]->Phi(particles.X(i)) - particles.R(i) < 0.0){
+					Vector2i result (i,j);
+					particle_environment_collision_pairs.push_back(result);
+				}
+			}
+		}
 	}
 		
 	//////////////////////////////////////////////////////////////////////////
@@ -58,14 +67,21 @@ public:
 	////The collision response force consists of a spring force and a damping force
 	virtual void Particle_Environment_Collision_Response()
 	{
-		for(int pair_idx=0;pair_idx<particle_environment_collision_pairs.size();pair_idx++){
-			int i=particle_environment_collision_pairs[pair_idx][0];	////particle index
-			int j=particle_environment_collision_pairs[pair_idx][1];	////env_objects index
+		for(int pair_i=0;pair_i<particle_environment_collision_pairs.size();pair_i++){
+			int i=particle_environment_collision_pairs[pair_i][0];	////particle index
+			int j=particle_environment_collision_pairs[pair_i][1];	////env_objects index
 			VectorD collision_force=VectorD::Zero();
 
-			/* Your implementation start */
-			/* Your implementation end */
+			VectorD env_vel=VectorD::Zero();
+
+			double signed_dist = env_objects[j]->Phi(particles.X(i));
+			VectorD surface_normal = env_objects[j]->Normal(particles.X(i));
+
+			VectorD spring_force = ks*(signed_dist - particles.R(i))*(-1.0*surface_normal);
+			VectorD dampening_force = kd*((env_vel - particles.V(i)).dot(-1.0*surface_normal))*(-1.0*surface_normal);
 			
+			collision_force = spring_force + dampening_force;
+
 			particles.F(i)+=collision_force;
 		}
 	}
@@ -78,6 +94,14 @@ public:
 		particle_particle_collision_pairs.clear();
 		/* Your implementation start */
 		/* Your implementation end */
+		for(int i=0;i<particles.Size();i++){
+			for(int j=0;j<particles.Size();j++){
+				if(i != j && ((particles.X(i)-particles.X(j)).norm())-(particles.R(i)+particles.R(j)) < 0.0){
+					Vector2i result (i,j);
+					particle_particle_collision_pairs.push_back(result);
+				}
+			}
+		}
 	}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -85,13 +109,31 @@ public:
 	////The collision response force for each pair consists of a spring force and a damping force
 	virtual void Particle_Particle_Collision_Response()
 	{
-		for(int pair_idx=0;pair_idx<particle_particle_collision_pairs.size();pair_idx++){
-			int i=particle_particle_collision_pairs[pair_idx][0];	////the first particle index in the pair
-			int j=particle_particle_collision_pairs[pair_idx][1];	////the second particle index in the pair
+		for(int pair_i=0;pair_i<particle_particle_collision_pairs.size();pair_i++){
+			int i=particle_particle_collision_pairs[pair_i][0];	////the first particle index in the pair
+			int j=particle_particle_collision_pairs[pair_i][1];	////the second particle index in the pair
 			VectorD collision_force=VectorD::Zero();
 
 			/* Your implementation start */
 			/* Your implementation end */
+			VectorD X_i=particles.X(i);
+			VectorD X_j=particles.X(j);
+
+			VectorD V_i=particles.V(i);
+			VectorD V_j=particles.V(j);
+
+			float l_o = particles.R(i) + particles.R(j);
+
+
+			VectorD n = (X_j - X_i).normalized();
+
+			VectorD fs_ij = (ks)*((X_j - X_i).norm()-(l_o)) * n;
+			VectorD fd_ij = (kd)*((V_j - V_i).dot(n))*(n);
+			VectorD f_ij = fs_ij + fd_ij;
+			
+			particles.F(i) = particles.F(i) + f_ij;
+			particles.F(j)= particles.F(j) + (-1*f_ij);
+
 		}
 
 	}
